@@ -181,3 +181,42 @@ def format_price(price) -> str:
     if isinstance(price, (int, float)):
         return f"${price:,.0f}"
     return f"${price}"
+
+def run_flight_skill(user_query: str, api_key_from_ui: str = None):
+    extracted = extract_flight_info(user_query)
+    
+    if extracted.get("action") == "general_question":
+        return "Which destination are you looking for, and what is your intended travel date?"
+
+    origin_code = get_airport_code(extracted.get("origin", "HAN"))
+    dest_code = get_airport_code(extracted.get("destination", "SGN"))
+    flight_date = extracted.get("date")
+
+    if not flight_date:
+        return "Please enter your departure date!"
+
+    search_results = search_flights(
+        origin=origin_code,
+        destination=dest_code,
+        date=flight_date,
+        api_key=api_key_from_ui
+    )
+
+    if not search_results["success"]:
+        # Chuyển thông báo lỗi sang tiếng Anh
+        error_msg = search_results.get('message', 'No schedules found.')
+        return f"Error: {error_msg}"
+
+    flights = search_results["flights"]
+    # Tiêu đề chuyên nghiệp
+    response = f" **Flight schedule from {origin_code} to {dest_code} on {flight_date}:**\n\n"
+    
+    for f in flights:
+        response += (
+            f"- **{f['airline']}** ({f['flight_number']})\n"
+            f"  🕒 {f['departure_time']} ➔ {f['arrival_time']} "
+            f"({format_duration(f['duration'])})\n"
+            f"  Price from: {format_price(f['price'])}\n"
+            f"  --- \n"
+        )
+    return response
